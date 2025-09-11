@@ -110,6 +110,37 @@ The eBPF verifier will reject the program if the eBPF program attempts to derefe
 
 ## Example eBPF program
 
+### Compiling
+
+To compile the program, switch to the ```src/``` directory and execute ```make```. This will generate a little endian ```wg_le.o``` and big endian ```wg_be.o``` eBPF object inside the ```obj/``` directory.
+
+```
+$ cd src/
+$ make
+clang -O2 -g -Wall -target bpf -std=gnu23 -mlittle-endian -c wg.c -o obj/wg_le.o
+clang -O2 -g -Wall -target bpf -std=gnu23 -mbig-endian -c wg.c -o obj/wg_be.o
+```
+
+<br>
+
+### Running
+
+To attach the eBPF/XDP program to a network interface, you can use the ```ip``` command line tool:
+
+```
+$ ip link set <ifname> xdp obj wg_*e.o program xdp_wg
+```
+
+<br>
+
+To attach the eBPF/TC program to a network interface, you can use the ```tc``` command line tool:
+```
+$ tc qdisc add dev <ifname> clsact
+$ tc filter add dev <ifname> ingress bpf da obj wg_*e.o program tc_wg
+```
+
+<br><br>
+
 The following flow chart shows how the eBPF program uses the Kernel API/kfuncs to encrypt or decrypt incoming packets:
 
 ```mermaid
@@ -135,35 +166,4 @@ flowchart TD
     W --> X["bpf_wg_device_put()"]
     X --> Y["bpf_fib_lookup()"]
     Y --> Z["bpf_redirect()"]
-```
-
-<br>
-
-### Compiling
-
-To compile the program, switch to the ```src/``` directory and execute ```make```. This will generate a little endian ```wg_le.o``` and big endian ```wg_be.o``` eBPF object inside the ```obj/``` directory.
-
-```
-$ cd src/
-$ make
-clang -O2 -g -Wall -target bpf -std=gnu23 -mlittle-endian -c wg.c -o obj/wg_le.o
-clang -O2 -g -Wall -target bpf -std=gnu23 -mbig-endian -c wg.c -o obj/wg_be.o
-```
-
-<br>
-
-## Running
-
-To attach the eBPF/XDP program to a network interface, you can use the ```ip``` command line tool:
-
-```
-$ ip link set <ifname> xdp obj wg_*e.o program xdp_wg
-```
-
-<br>
-
-To attach the eBPF/TC program to a network interface, you can use the ```tc``` command line tool:
-```
-$ tc qdisc add dev <ifname> clsact
-$ tc filter add dev <ifname> ingress bpf da obj wg_*e.o program tc_wg
 ```
