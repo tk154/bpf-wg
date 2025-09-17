@@ -10,11 +10,11 @@
 
 #include <sys/socket.h>
 
-#include <bpf/bpf_endian.h>
+#include "endian.h"
 
 
 #define IP_VERSION(ip)	(*(__u8 *)(ip) >> 4)
-#define WG_MESSAGE_DATA 4
+#define WG_MESSAGE_DATA bpf_le32_to_cpu(4)
 
 // Helper macro to make the out-of-bounds check on a packet header
 #define check_header(hdr, pkt) \
