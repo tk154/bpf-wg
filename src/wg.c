@@ -66,7 +66,7 @@ __u16 calculate_padding(__u16 tot_len)
 }
 
 __always_inline static
-int wg_encrypt(struct packet_data *pkt, struct packet_header *header, int wg_ifindex, bool udp_csum)
+int wg_encrypt(struct packet_data *pkt, struct packet_header *header, int wg_ifindex, bool udp_check)
 {
     __u16 trailer_len, iph_offset, wg_offset, wg_len, tot_len;
     __u16 daddr_len, iph_len, header_len, padding_len;
@@ -128,7 +128,7 @@ int wg_encrypt(struct packet_data *pkt, struct packet_header *header, int wg_ifi
     }
 
     if (!create_udp_tunnel(pkt->data + iph_offset, pkt->data_end,
-            family, &tuple, tot_len, udp_csum))
+            family, &tuple, tot_len, udp_check))
         goto bpf_wg_peer_put;
 
     out_ifindex = output(pkt, family, 0);
@@ -243,7 +243,7 @@ bpf_wg_put_device:
 
 
 __always_inline static
-int wg_func(struct packet_data *pkt, bool udp_csum)
+int wg_func(struct packet_data *pkt, bool udp_check)
 {
     struct packet_header header;
     int ifindex;
@@ -258,7 +258,7 @@ int wg_func(struct packet_data *pkt, bool udp_csum)
         if (header.l3.tot_len > MAX_MTU)
             return 0;
 
-        return wg_encrypt(pkt, &header, ifindex, udp_csum);
+        return wg_encrypt(pkt, &header, ifindex, udp_check);
     }
     else if (!ifindex) {
         if (!parse_l4_header(pkt, header.l3.proto, &header.l4) ||
@@ -274,7 +274,7 @@ int wg_func(struct packet_data *pkt, bool udp_csum)
 
 
 __always_inline static
-int __xdp_wg(struct xdp_md *xdp, bool udp_csum)
+int __xdp_wg(struct xdp_md *xdp, bool udp_check)
 {
 	struct packet_data pkt = {
         .ctx        = (void *)xdp,
@@ -285,7 +285,7 @@ int __xdp_wg(struct xdp_md *xdp, bool udp_csum)
         .is_xdp     = true
 	};
 
-    int out_ifindex = wg_func(&pkt, udp_csum);
+    int out_ifindex = wg_func(&pkt, udp_check);
 
     if (out_ifindex > 0)
         return bpf_redirect(out_ifindex, 0);
@@ -296,7 +296,7 @@ int __xdp_wg(struct xdp_md *xdp, bool udp_csum)
 }
 
 __always_inline static
-int __tc_wg(struct __sk_buff *skb, bool udp_csum)
+int __tc_wg(struct __sk_buff *skb, bool udp_check)
 {
 	struct packet_data pkt = {
         .ctx        = (void *)skb,
@@ -307,7 +307,7 @@ int __tc_wg(struct __sk_buff *skb, bool udp_csum)
         .is_xdp     = false
 	};
 
-    int out_ifindex = wg_func(&pkt, udp_csum);
+    int out_ifindex = wg_func(&pkt, udp_check);
 
     if (out_ifindex > 0)
         return bpf_redirect(out_ifindex, 0);
@@ -325,7 +325,7 @@ int xdp_wg(struct xdp_md *xdp)
 }
 
 SEC("xdp")
-int xdp_wg_no_csum(struct xdp_md *xdp)
+int xdp_wg_nocheck(struct xdp_md *xdp)
 {
     return __xdp_wg(xdp, false);
 }
@@ -338,7 +338,7 @@ int tc_wg(struct __sk_buff *skb)
 }
 
 SEC("tc")
-int tc_wg_no_csum(struct __sk_buff *skb)
+int tc_wg_nocheck(struct __sk_buff *skb)
 {
     return __tc_wg(skb, false);
 }
